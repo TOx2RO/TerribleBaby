@@ -20,7 +20,7 @@ USER_AGENT = "Mozilla/4.0 (compatible; MSIE 6.0; Windows XP)"
 ACCEPT_LANGUAGE = "ja"
 TIMEOUT = 20
 MIN_INTERVAL = 15
-MAX_THREADS = 3
+MAX_THREADS = 5
 REDIS_QUEUE_KEY = "TB_download_queue"
 REDIS_LIMITER_KEY_PREFIX = "TB_limiter_"
 
@@ -37,7 +37,7 @@ formatter = Log4r::PatternFormatter.new(
 @logger.level = INFO
 outputter = Log4r::FileOutputter.new(
   "file",
-  :filename => '/var/log/downloader.log',
+  :filename => '/var/log/TB_downloader.log',
   :trunc => false,
   :formatter => formatter
 )
@@ -80,6 +80,7 @@ def download(param, url, output, isRedirect)
 end
 
 # main
+@logger.info "TerribleBaby started #{$$}"
 @threads = Array.new(MAX_THREADS)
 
 MAX_THREADS.times do |i|
@@ -99,7 +100,7 @@ MAX_THREADS.times do |i|
       # fetch a download entry
       tmp = redis.LPOP(REDIS_QUEUE_KEY)
       if tmp.nil? then
-        sleep 1
+        sleep 3
         next
       end
  
@@ -111,16 +112,17 @@ MAX_THREADS.times do |i|
 
       if nowait == true
         # download (nowait mode)
-        @logger.info "(#{param}) download (nowait): #{url.to_s}"
+        @logger.info "(#{param}) start download (nowait): #{url.to_s}"
         download(param, url, output, true)
       else
         # skip when limiter is set
         if redis.SETNX(REDIS_LIMITER_KEY_PREFIX + uid, 1) == 0 then
           redis.RPUSH(REDIS_QUEUE_KEY, tmp)
+          @logger.info "(#{param}) #{uid} is limitted!"
           next
         end
         
-        @logger.info "(#{param}) download: #{url.to_s}"
+        @logger.info "(#{param}) start download: #{url.to_s}"
         download(param, url, output, true)      
       
         # make limiter to be expired in MIN_INTERVAL
@@ -134,3 +136,4 @@ end
 MAX_THREADS.times { |i|
   @threads[i].join
 }
+@logger.info "TerribleBaby terminated #{$$}"

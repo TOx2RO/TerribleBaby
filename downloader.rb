@@ -98,7 +98,7 @@ MAX_THREADS.times do |i|
       end
       
       # fetch a download entry
-      tmp = redis.LPOP(REDIS_QUEUE_KEY)
+      tmp = redis.SPOP(REDIS_QUEUE_KEY)
       if tmp.nil? then
         sleep 3
         next
@@ -116,9 +116,15 @@ MAX_THREADS.times do |i|
         download(param, url, output, true)
       else
         # skip when limiter is set
-        if redis.SETNX(REDIS_LIMITER_KEY_PREFIX + uid, 1) == 0 then
-          redis.RPUSH(REDIS_QUEUE_KEY, tmp)
-          @logger.info "(#{param}) #{uid} is limitted!"
+        if redis.SETNX(REDIS_LIMITER_KEY_PREFIX + uid, Time.now.to_i) == 0 then
+          redis.SADD(REDIS_QUEUE_KEY, tmp)
+          sleep 1
+          
+          if redis.TTL(REDIS_LIMITER_KEY_PREFIX + uid) == -1 then
+            # @logger.error "#{uid} TTL is broken!!"
+            redis.EXPIRE(REDIS_LIMITER_KEY_PREFIX + uid, MIN_INTERVAL)
+          end
+          
           next
         end
         

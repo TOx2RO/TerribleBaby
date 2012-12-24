@@ -1,6 +1,8 @@
 #!/usr/bin/ruby
 #coding:utf-8
 
+require 'rubygems'
+
 require 'thread'
 require 'uri'
 require 'net/http'
@@ -20,10 +22,10 @@ arg_nowait = false
 arg_uid = nil
 while arg = ARGV.shift
   case arg
-  when "--nowait"
-    arg_nowait = true
-  when "--uid"
-    arg_uid = ARGV.shift
+    when "--nowait"
+      arg_nowait = true
+    when "--uid"
+      arg_uid = ARGV.shift
   end
 end
 
@@ -59,9 +61,9 @@ value['uid'] = arg_uid
 
 # put an entry to Redis
 redis = Redis.new
-redis.RPUSH(REDIS_QUEUE_KEY, Marshal.dump(value))
+redis.rpush(REDIS_QUEUE_KEY, Marshal.dump(value))
 
-if value['nowait'] == true then
+if value['nowait'] then
   puts "success (nowait)"
 else
   puts "success"
